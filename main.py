@@ -16,10 +16,11 @@ logger = logging.getLogger("tcp_server")
 
 
 class TCPServer:
-    def __init__(self, host="0.0.0.0", port=8800):
+    def __init__(self, host="0.0.0.0", port=8888):
         self.host = host
         self.port = port
         self.clients: Dict[str, asyncio.StreamWriter] = {}  # client_id: writer
+        self.server = None
 
     async def handle_client(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -60,6 +61,14 @@ class TCPServer:
             self.clients[client_id] = writer
             logger.info(f"클라이언트 {client_id}가 연결되었습니다.")
 
+            # 환영 메시지 전송
+            welcome_message = (
+                json.dumps({"message": f"환영합니다, {client_id}님!"}) + "\n"
+            )
+            writer.write(welcome_message.encode())
+            await writer.drain()
+            logger.info(f"환영 메시지 전송됨: {client_id}")
+
             while True:
                 data = await reader.readline()
                 if not data:
@@ -81,12 +90,14 @@ class TCPServer:
             await writer.wait_closed()
 
     async def start_tcp_server(self):
-        server = await asyncio.start_server(self.handle_client, self.host, self.port)
-        addr = server.sockets[0].getsockname()
+        self.server = await asyncio.start_server(
+            self.handle_client, self.host, self.port
+        )
+        addr = self.server.sockets[0].getsockname()
         logger.info(f"TCP 서버가 {addr}에서 실행 중입니다.")
 
-        async with server:
-            await server.serve_forever()
+        async with self.server:
+            await self.server.serve_forever()
 
     async def send_notification(self, client_id: str, message: str):
         writer = self.clients.get(client_id)
@@ -108,8 +119,30 @@ class TCPServer:
         await asyncio.gather(*tasks)
 
 
-# TCP 서버 인스턴스 생성
+# FastAPI와 TCP 서버 인스턴스 생성
 tcp_server = TCPServer()
+
+
+@app.on_event("startup")
+async def startup_event():
+    # TCP 서버를 백그라운드에서 실행
+    asyncio.create_task(tcp_server.start_tcp_server())
+    logger.info("TCP 서버가 백그라운드에서 시작되었습니다.")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    # 모든 클라이언트 연결 종료
+    for client_id, writer in tcp_server.clients.items():
+        writer.close()
+        await writer.wait_closed()
+        logger.info(f"클라이언트 {client_id} 연결 종료.")
+
+    # TCP 서버 종료
+    if tcp_server.server:
+        tcp_server.server.close()
+        await tcp_server.server.wait_closed()
+        logger.info("TCP 서버가 종료되었습니다.")
 
 
 # FastAPI 엔드포인트 정의
