@@ -11,11 +11,11 @@ app = FastAPI()
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("main")
+logger = logging.getLogger("tcp_fastapi")
 
 
 class TCPServer:
-    def __init__(self, host="0.0.0.0", port=8800):
+    def __init__(self, host="0.0.0.0", port=8000):
         self.host = host
         self.port = port
         self.clients: Dict[str, asyncio.StreamWriter] = {}  # client_id: writer
@@ -190,4 +190,4 @@ async def receive_webhook(request: Request):
 
 if __name__ == "__main__":
     # Uvicorn 서버 실행 (비동기적으로)
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, log_level="info")
+    uvicorn.run("main:app", host="0.0.0.0", port=8800, log_level="info")
