@@ -1,4 +1,3 @@
-# tcp_server.py
 import asyncio
 import json
 import logging
@@ -6,17 +5,17 @@ from typing import Dict, List
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from uvicorn import Config, Server
+import uvicorn
 
 app = FastAPI()
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("tcp_server")
+logger = logging.getLogger("main")
 
 
 class TCPServer:
-    def __init__(self, host="0.0.0.0", port=8888):
+    def __init__(self, host="0.0.0.0", port=8800):
         self.host = host
         self.port = port
         self.clients: Dict[str, asyncio.StreamWriter] = {}  # client_id: writer
@@ -189,18 +188,6 @@ async def receive_webhook(request: Request):
         )
 
 
-# 메인 실행 함수
-async def main():
-    # uvicorn 설정
-    config = Config(app=app, host="0.0.0.0", port=8000, log_level="info")
-    server = Server(config)
-
-    # TCP 서버와 FastAPI 서버를 동시에 실행
-    await asyncio.gather(tcp_server.start_tcp_server(), server.serve())
-
-
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logger.info("서버 중지됨.")
+    # Uvicorn 서버 실행 (비동기적으로)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, log_level="info")
